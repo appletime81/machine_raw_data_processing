@@ -3,6 +3,10 @@ from math import isnan
 from pprint import pprint
 from datetime import datetime, timedelta
 
+# date format
+date_format = "%Y/%m/%d %H:%M"
+a = 0
+
 
 def is_nan(item):
     try:
@@ -13,16 +17,13 @@ def is_nan(item):
     return item
 
 
-def main():
+def generate_first_csv_file(raw_data_file):
     # load raw data
-    raw_df = pd.read_csv("raw_data.csv")
+    raw_df = pd.read_csv(raw_data_file)
 
     # column name
     column_name = list(raw_df.columns)
 
-    # date format
-    date_format = "%Y/%m/%d %H:%M"
-    
     # record data
     data_dict_1 = {
         "Machine_name": [],
@@ -40,13 +41,10 @@ def main():
         "State: Specific Running Continuous"
     ]
 
-    # print(type(raw_df["log_datetime"][0]))
-    # print(datetime.strptime(raw_df["log_datetime"][0], date_format))
-
     first_started_index = int(raw_df[raw_df["status_name"] == "STARTED"].index[0])
     for i in range(len(raw_df)):
         serial, log_datetime, machine_name, event_type, status_name, error_code, error_name, stopped_reason = [raw_df[key][i] for key in column_name]
-        # print(serial, log_datetime, machine_name, event_type, status_name, error_code, error_name, stopped_reason)
+
         if i == first_started_index:
             data_dict_1["Machine_name"].append(machine_name)
             data_dict_1["Status"].append(status_name)
@@ -63,6 +61,12 @@ def main():
             elif event_type == "STATUS" and status_name == "FINISHED" and stopped_reason == "Auto":
                 pass
             elif event_type == "STATUS" and status_name == "FINISHED" and stopped_reason == "MA":
+                data_dict_1["Machine_name"].append(machine_name)
+                data_dict_1["Status"].append("FINISHED")
+                data_dict_1["DTTM"].append(log_datetime)
+                data_dict_1["Even_type"].append(stopped_reason)
+                data_dict_1["Remark"].append("")
+            elif event_type == "STATUS" and status_name == "FINISHED" and stopped_reason == "Reset":
                 data_dict_1["Machine_name"].append(machine_name)
                 data_dict_1["Status"].append("FINISHED")
                 data_dict_1["DTTM"].append(log_datetime)
@@ -93,7 +97,26 @@ def main():
     result_df.to_csv("test.csv", index=False)
 
 
+def generate_second_csv_file(first_csv_file):
+    data_dict_2 = {
+        "Machine": [],
+        "Status": [],
+
+    }
+    df = pd.read_csv(first_csv_file)
+    column_name = list(df.columns)
+    for i in range(len(df)):
+        machine_name, status, dttm, even_type, remark = [df[key][i] for key in column_name]
+
+        if i > 0:
+
+
+
+
+def main():
+    generate_first_csv_file("raw_data.csv")
+    generate_second_csv_file("test.csv")
+
+
 if __name__ == "__main__":
     main()
-    # a = "2"
-    # print(a.isdigit())
