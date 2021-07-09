@@ -1,6 +1,5 @@
 import pandas as pd
 from math import isnan
-from pprint import pprint
 from datetime import datetime, timedelta
 
 # date format
@@ -15,6 +14,21 @@ def is_nan(item):
     except TypeError:
         return item
     return item
+
+
+def is_nan_with_str(item):
+    try:
+        return isnan(item)
+    except:
+        return False
+
+
+def time_delta(time1, time2):
+    time1 = datetime.strptime(time1, date_format)
+    time2 = datetime.strptime(time2, date_format)
+    delta = time2 - time1
+    delta_str = str(int(str(delta)[2:4]))
+    return delta_str + " min"
 
 
 def generate_first_csv_file(raw_data_file):
@@ -32,14 +46,6 @@ def generate_first_csv_file(raw_data_file):
         "Even_type": [],
         "Remark": []
     }
-
-    error_list = [
-        "ERROR",
-        "ALARM",
-        "Begin Repair",
-        "MACHINE",
-        "State: Specific Running Continuous"
-    ]
 
     first_started_index = int(raw_df[raw_df["status_name"] == "STARTED"].index[0])
     for i in range(len(raw_df)):
@@ -94,28 +100,56 @@ def generate_first_csv_file(raw_data_file):
     result_df = pd.DataFrame(data_dict_1)
 
     # save result to the file
-    result_df.to_csv("test.csv", index=False)
+    result_df.to_csv("result1.csv", index=False)
 
 
 def generate_second_csv_file(first_csv_file):
-    data_dict_2 = {
-        "Machine": [],
-        "Status": [],
-
-    }
+    data_dict_2 = {"Machine": [], "Status": [], "Run": []}
     df = pd.read_csv(first_csv_file)
     column_name = list(df.columns)
+
     for i in range(len(df)):
         machine_name, status, dttm, even_type, remark = [df[key][i] for key in column_name]
-
         if i > 0:
+            if status == "FINISHED" and df["Status"][i-1] == "STARTED" and str(even_type).replace(".", "").isdigit():
+                data_dict_2["Machine"].append(machine_name)
+                data_dict_2["Status"].append("Run")
+                data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
+            elif status == "FINISHED" and df["Status"][i-1] == "STARTED" and is_nan_with_str(even_type):
+                data_dict_2["Machine"].append(machine_name)
+                data_dict_2["Status"].append("Run")
+                data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
+            elif status == "FINISHED" and df["Status"][i - 1] == "STARTED" and isinstance(even_type, str):
+                data_dict_2["Machine"].append(machine_name)
+                data_dict_2["Status"].append("Run")
+                data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
 
+                data_dict_2["Machine"].append(machine_name)
+                data_dict_2["Status"].append("Stop")
+                data_dict_2["Run"].append(time_delta(dttm, df["DTTM"][i+1]))
+            # elif status == "STARTED" and df["Status"][i - 1] == "FINISHED" and isinstance(even_type, str):
+            #     data_dict_2["Machine"].append(machine_name)
+            #     data_dict_2["Status"].append("Stop")
+            #     data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
+            elif status == "ALARM" and df["Status"][i-1] == "FINISHED":
+                data_dict_2["Machine"].append(machine_name)
+                data_dict_2["Status"].append("Stop")
+                data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
 
+    result_df = pd.DataFrame(data_dict_2)
+
+    last_item_index = len(result_df) - 1
+    if result_df["Status"][last_item_index] == "Stop" and result_df["Run"][last_item_index] == "0 min":
+        result_df["Machine"][last_item_index] = ""
+        result_df["Status"][last_item_index] = ""
+        result_df["Run"][last_item_index] = ""
+
+    result_df.to_csv("result2.csv", index=False)
 
 
 def main():
     generate_first_csv_file("raw_data.csv")
-    generate_second_csv_file("test.csv")
+    generate_second_csv_file("result1.csv")
 
 
 if __name__ == "__main__":
