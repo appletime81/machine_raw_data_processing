@@ -1,6 +1,7 @@
 import pandas as pd
 from math import isnan
 from datetime import datetime, timedelta
+from pprint import pprint
 
 # date format
 date_format = "%Y/%m/%d %H:%M"
@@ -29,6 +30,16 @@ def time_delta(time1, time2):
     delta = time2 - time1
     delta_str = str(int(str(delta)[2:4]))
     return delta_str + " min"
+
+
+def get_machine_name(csv_file):
+    df = pd.read_csv(csv_file)
+    machine_name = []
+    for i in range(len(df)):
+        machine_name.append(df["machine_name"][i])
+    machine_name = list(set(machine_name))
+    print(machine_name)
+    return machine_name
 
 
 def generate_first_csv_file(raw_data_file):
@@ -103,53 +114,60 @@ def generate_first_csv_file(raw_data_file):
     result_df.to_csv("result1.csv", index=False)
 
 
-def generate_second_csv_file(first_csv_file):
-    data_dict_2 = {"Machine": [], "Status": [], "Run": []}
-    df = pd.read_csv(first_csv_file)
-    column_name = list(df.columns)
+def generate_second_csv_file(first_csv_file, raw_data_file):
+    def policy(csv_file, df):
+        data_dict_2 = {"Machine": [], "Status": [], "Run": []}
+        column_name = list(pd.read_csv(csv_file).columns)
 
-    for i in range(len(df)):
-        machine_name, status, dttm, even_type, remark = [df[key][i] for key in column_name]
-        if i > 0:
-            if status == "FINISHED" and df["Status"][i-1] == "STARTED" and str(even_type).replace(".", "").isdigit():
-                data_dict_2["Machine"].append(machine_name)
-                data_dict_2["Status"].append("Run")
-                data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
-            elif status == "FINISHED" and df["Status"][i-1] == "STARTED" and is_nan_with_str(even_type):
-                data_dict_2["Machine"].append(machine_name)
-                data_dict_2["Status"].append("Run")
-                data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
-            elif status == "FINISHED" and df["Status"][i - 1] == "STARTED" and isinstance(even_type, str):
-                data_dict_2["Machine"].append(machine_name)
-                data_dict_2["Status"].append("Run")
-                data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
+        for i in range(len(df)):
+            machine_name, status, dttm, even_type, remark = [df[key][i] for key in column_name]
+            if i > 0:
+                if status == "FINISHED" and df["Status"][i-1] == "STARTED" and str(even_type).replace(".", "").isdigit():
+                    data_dict_2["Machine"].append(machine_name)
+                    data_dict_2["Status"].append("Run")
+                    data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
+                elif status == "FINISHED" and df["Status"][i-1] == "STARTED" and is_nan_with_str(even_type):
+                    data_dict_2["Machine"].append(machine_name)
+                    data_dict_2["Status"].append("Run")
+                    data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
+                elif status == "FINISHED" and df["Status"][i - 1] == "STARTED" and isinstance(even_type, str):
+                    data_dict_2["Machine"].append(machine_name)
+                    data_dict_2["Status"].append("Run")
+                    data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
 
-                data_dict_2["Machine"].append(machine_name)
-                data_dict_2["Status"].append("Stop")
-                data_dict_2["Run"].append(time_delta(dttm, df["DTTM"][i+1]))
-            # elif status == "STARTED" and df["Status"][i - 1] == "FINISHED" and isinstance(even_type, str):
-            #     data_dict_2["Machine"].append(machine_name)
-            #     data_dict_2["Status"].append("Stop")
-            #     data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
-            elif status == "ALARM" and df["Status"][i-1] == "FINISHED":
-                data_dict_2["Machine"].append(machine_name)
-                data_dict_2["Status"].append("Stop")
-                data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
+                    data_dict_2["Machine"].append(machine_name)
+                    data_dict_2["Status"].append("Stop")
+                    data_dict_2["Run"].append(time_delta(dttm, df["DTTM"][i+1]))
+                elif status == "ALARM" and df["Status"][i-1] == "FINISHED":
+                    data_dict_2["Machine"].append(machine_name)
+                    data_dict_2["Status"].append("Stop")
+                    data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
+        result_df = pd.DataFrame(data_dict_2)
+        last_item_index = len(result_df) - 1
+        if result_df["Status"][last_item_index] == "Stop" and result_df["Run"][last_item_index] == "0 min":
+            result_df["Machine"][last_item_index] = ""
+            result_df["Status"][last_item_index] = ""
+            result_df["Run"][last_item_index] = ""
+        return result_df
 
-    result_df = pd.DataFrame(data_dict_2)
+    # get machine name
+    machine_names = get_machine_name(raw_data_file)
+    raw_data_df = pd.read_csv(raw_data_file)
+    raw_data_list = []
+    for machine_name in machine_names:
+        new_df = raw_data_df[raw_data_df["machine_name"] == machine_name]
+        raw_data_list.append(new_df)
 
-    last_item_index = len(result_df) - 1
-    if result_df["Status"][last_item_index] == "Stop" and result_df["Run"][last_item_index] == "0 min":
-        result_df["Machine"][last_item_index] = ""
-        result_df["Status"][last_item_index] = ""
-        result_df["Run"][last_item_index] = ""
+    for df in raw_data_list:
+        result =
 
-    result_df.to_csv("result2.csv", index=False)
+
 
 
 def main():
-    generate_first_csv_file("raw_data.csv")
-    generate_second_csv_file("result1.csv")
+    # generate_first_csv_file("raw_data.csv")
+    generate_second_csv_file("result1.csv", "raw_data2.csv")
+    # get_machine_name("raw_data2.csv")
 
 
 if __name__ == "__main__":
