@@ -10,6 +10,11 @@ def get_machine_name(raw_data_file):
     return machine_names
 
 
+def get_dataframe(raw_data, machine_name):
+    df = raw_data[machine_name].reset_index(drop=True, inplace=True)
+    return df
+
+
 def policy(df):
     # variables
     col_names = df.columns
