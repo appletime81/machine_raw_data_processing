@@ -5,14 +5,13 @@ from pprint import pprint
 
 
 def get_machine_name(raw_data_file):
-    df = pd.read_csv(raw_data_file)
-    machine_names = list(df.groupby(["machine_name"]).groups.keys())
+    orig_data = pd.read_csv(raw_data_file)
+    machine_names = list(orig_data.groupby(["machine_name"]).groups.keys())
     return machine_names
 
 
 def get_dataframe(raw_data, machine_name):
-    df = raw_data[machine_name].reset_index(drop=True, inplace=True)
-    return df
+    return raw_data[raw_data["machine_name"] == machine_name].reset_index(drop=True)
 
 
 def policy(df):
@@ -31,10 +30,18 @@ def policy(df):
         # start processing
         if i > 0:
             pass
-    
 
 
 if __name__ == "__main__":
-    # get_machine_name("raw_data.csv")
-    df = pd.read_csv("raw_data.csv")
-    policy(df)
+    raw_data_csv_file = "raw_data.csv"
+    machine_names = get_machine_name(raw_data_csv_file)
+    pprint(machine_names)
+
+    df_by_machine = get_dataframe(
+        pd.read_csv(raw_data_csv_file),
+        machine_names[1]
+    )
+
+    pprint(df_by_machine)
+
+
