@@ -1,176 +1,113 @@
 import pandas as pd
-from math import isnan
-from datetime import datetime, timedelta
+from datetime import datetime
+time_format = "%Y/%m/%d %H:%M"
 
 
-# date format
-date_format = "%Y/%m/%d %H:%M"
+def get_machine_name(raw_data_file):
+    orig_data = pd.read_csv(raw_data_file)
+    machine_names = list(orig_data.groupby(["machine_name"]).groups.keys())
+    return machine_names
 
 
-def is_nan(item):
-    try:
-        if isnan(item):
-            return ""
-    except TypeError:
-        return item
-    return item
+def get_dataframe(raw_data, machine_name):
+    return raw_data[raw_data["machine_name"] == machine_name].reset_index(drop=True)
 
 
-def is_nan_with_str(item):
-    try:
-        return isnan(item)
-    except:
-        return False
+def cal_time_delta(time1, time2):
+    time1 = datetime.strptime(time1, time_format)
+    time2 = datetime.strptime(time2, time_format)
+    if int(str(time2 - time1).split(":")[1]) == 0:
+        return 1
+    return int(str(time2 - time1).split(":")[1])
 
 
-def time_delta(time1, time2):
-    time1 = datetime.strptime(time1, date_format)
-    time2 = datetime.strptime(time2, date_format)
-    delta = time2 - time1
-    delta_str = str(int(str(delta)[2:4]))
-    return delta_str + " min"
-
-
-def get_machine_name(csv_file):
-    df = pd.read_csv(csv_file)
-    machine_name = []
-    for i in range(len(df)):
-        machine_name.append(df["Machine_name"][i])
-    machine_name = list(set(machine_name))
-    return machine_name
-
-
-def generate_first_csv_file(raw_data_file):
-    # load raw data
-    raw_df = pd.read_csv(raw_data_file)
-
-    # column name
-    column_name = list(raw_df.columns)
-
-    # record data
-    data_dict_1 = {
-        "Machine_name": [],
-        "Status": [],
-        "DTTM": [],
-        "Even_type": [],
-        "Remark": []
+def policy(df):
+    # variables
+    col_names = df.columns
+    res = {
+        "Machine": [], "Status": [], "Start_DTTM": [], "Stop_DTTM": [], "Duration": [],
+        "error_code": [], "error_name": [], "stopped_reason": []
     }
 
-    first_started_index = int(raw_df[raw_df["status_name"] == "STARTED"].index[0])
-    for i in range(len(raw_df)):
-        serial, log_datetime, machine_name, event_type, status_name, error_code, error_name, stopped_reason = [raw_df[key][i] for key in column_name]
+    for i in range(len(df)):
+        serial, log_datetime, machine_name, event_type, status_name, error_code, error_name, stopped_reason = \
+            [df[key][i] for key in col_names]
+        # print(serial, log_datetime, machine_name, event_type, status_name, error_code, error_name, stopped_reason)
 
-        if i == first_started_index:
-            data_dict_1["Machine_name"].append(machine_name)
-            data_dict_1["Status"].append(status_name)
-            data_dict_1["DTTM"].append(log_datetime)
-            data_dict_1["Even_type"].append("")
-            data_dict_1["Remark"].append(is_nan(error_name))
-        elif i > first_started_index:
-            if event_type == "STATUS" and status_name == "STARTED" and isnan(stopped_reason):
-                data_dict_1["Machine_name"].append(machine_name)
-                data_dict_1["Status"].append("STARTED")
-                data_dict_1["DTTM"].append(log_datetime)
-                data_dict_1["Even_type"].append("")
-                data_dict_1["Remark"].append("")
-            elif event_type == "STATUS" and status_name == "FINISHED" and stopped_reason == "Auto":
+        # start processing
+        if i > 0:
+            if status_name == "ERROR" and df["status_name"][i - 1] == "STARTED":
+                res["Machine"].append(machine_name)
+                res["Status"].append("Run")
+                res["Start_DTTM"].append(df["log_datetime"][i - 1])
+                res["Stop_DTTM"].append(df["log_datetime"][i + 1])
+                res["Duration"].append(cal_time_delta(df["log_datetime"][i - 1], df["log_datetime"][i + 1]))
+                res["error_code"].append("NA")
+                res["error_name"].append("NA")
+                res["stopped_reason"].append("NA")
+            elif status_name == "FINISHED" and df["status_name"][i - 1] == "ERROR":
+                try:
+                    res["Machine"].append(machine_name)
+                    res["Status"].append("Stop")
+                    res["Start_DTTM"].append(log_datetime)
+                    res["Stop_DTTM"].append(df["log_datetime"][i + 2])
+                    res["Duration"].append(cal_time_delta(log_datetime, df["log_datetime"][i + 2]))
+                    res["error_code"].append(df["error_code"][i - 1])
+                    res["error_name"].append(df["error_name"][i - 1])
+                    res["stopped_reason"].append(stopped_reason)
+                except:
+                    res["Machine"].pop(-1)
+                    res["Status"].pop(-1)
+                    res["Start_DTTM"].pop(-1)
+            elif status_name == "FINISHED" and df["status_name"][i - 1] == "STARTED":
+                res["Machine"].append(machine_name)
+                res["Status"].append("Run")
+                res["Start_DTTM"].append(df["log_datetime"][i - 1])
+                res["Stop_DTTM"].append(log_datetime)
+                res["Duration"].append(cal_time_delta(df["log_datetime"][i - 1], log_datetime))
+                res["error_code"].append("NA")
+                res["error_name"].append("NA")
+                res["stopped_reason"].append(stopped_reason)
+            elif status_name == "32trimform version 1.0.145" and df["status_name"][i - 1] == "FINISHED":
+                res["Machine"].append(machine_name)
+                res["Status"].append("Stop")
+                res["Start_DTTM"].append(log_datetime)
+                res["Stop_DTTM"].append(df["log_datetime"][i + 1])
+                res["Duration"].append(cal_time_delta(log_datetime, df["log_datetime"][i + 1]))
+                res["error_code"].append(event_type)
+                res["error_name"].append(status_name)
+                res["stopped_reason"].append("NA")
+            elif status_name == "FINISHED" and df["status_name"][i - 1] == "State: Specific Running Continuous":
+                res["Machine"].append(machine_name)
+                res["Status"].append("Run")
+                res["Start_DTTM"].append(df["log_datetime"][i - 1])
+                res["Stop_DTTM"].append(log_datetime)
+                res["Duration"].append(cal_time_delta(df["log_datetime"][i - 1], log_datetime))
+                res["error_code"].append("NA")
+                res["error_name"].append("NA")
+                res["stopped_reason"].append("NA")
+            else:
                 pass
-            elif event_type == "STATUS" and status_name == "FINISHED" and stopped_reason == "MA":
-                data_dict_1["Machine_name"].append(machine_name)
-                data_dict_1["Status"].append("FINISHED")
-                data_dict_1["DTTM"].append(log_datetime)
-                data_dict_1["Even_type"].append(stopped_reason)
-                data_dict_1["Remark"].append("")
-            elif event_type == "STATUS" and status_name == "FINISHED" and stopped_reason == "Reset":
-                data_dict_1["Machine_name"].append(machine_name)
-                data_dict_1["Status"].append("FINISHED")
-                data_dict_1["DTTM"].append(log_datetime)
-                data_dict_1["Even_type"].append(stopped_reason)
-                data_dict_1["Remark"].append("")
-            elif event_type == "ERROR" and str(error_code).replace(".", "").isdigit():
-                data_dict_1["Machine_name"].append(machine_name)
-                data_dict_1["Status"].append("FINISHED")
-                data_dict_1["DTTM"].append(log_datetime)
-                data_dict_1["Even_type"].append(is_nan(error_code))
-                data_dict_1["Remark"].append(is_nan(error_name))
-            elif event_type == "ALARM" and status_name == "Begin Repair":
-                data_dict_1["Machine_name"].append(machine_name)
-                data_dict_1["Status"].append("ALARM")
-                data_dict_1["DTTM"].append(log_datetime)
-                data_dict_1["Even_type"].append(is_nan(status_name))
-                data_dict_1["Remark"].append(is_nan(error_name))
-            elif event_type == "MACHINE" and status_name == "State: Specific Running Continuous":
-                data_dict_1["Machine_name"].append(machine_name)
-                data_dict_1["Status"].append("MACHINE")
-                data_dict_1["DTTM"].append(log_datetime)
-                data_dict_1["Even_type"].append(is_nan(error_code))
-                data_dict_1["Remark"].append(is_nan(error_name))
-
-    result_df = pd.DataFrame(data_dict_1)
-
-    # save result to the file
-    result_df.to_csv("result1.csv", index=False)
-
-
-def generate_second_csv_file(first_csv_file):
-    def policy(csv_file, df):
-        df.reset_index(drop=True, inplace=True)
-        if not df.empty:
-            data_dict_2 = {"Machine": [], "Status": [], "Run": []}
-            column_name = list(pd.read_csv(csv_file).columns)
-            for i in range(len(df)):
-                machine_name, status, dttm, even_type, remark = [df[key][i] for key in column_name]
-                if i > 0:
-                    if status == "FINISHED" and df["Status"][i-1] == "STARTED" and str(even_type).replace(".", "").isdigit():
-                        data_dict_2["Machine"].append(machine_name)
-                        data_dict_2["Status"].append("Run")
-                        data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
-                    elif status == "FINISHED" and df["Status"][i-1] == "STARTED" and is_nan_with_str(even_type):
-                        data_dict_2["Machine"].append(machine_name)
-                        data_dict_2["Status"].append("Run")
-                        data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
-                    elif status == "FINISHED" and df["Status"][i - 1] == "STARTED" and isinstance(even_type, str):
-                        data_dict_2["Machine"].append(machine_name)
-                        data_dict_2["Status"].append("Run")
-                        data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
-
-                        data_dict_2["Machine"].append(machine_name)
-                        data_dict_2["Status"].append("Stop")
-                        data_dict_2["Run"].append(time_delta(dttm, df["DTTM"][i+1]))
-                    elif status == "ALARM" and df["Status"][i-1] == "FINISHED":
-                        data_dict_2["Machine"].append(machine_name)
-                        data_dict_2["Status"].append("Stop")
-                        data_dict_2["Run"].append(time_delta(df["DTTM"][i-1], dttm))
-            result_df = pd.DataFrame(data_dict_2)
-            last_item_index = len(result_df) - 1
-        else:
-            result_df = None
-        return result_df
-
-    # get machine name
-    machine_names = get_machine_name(first_csv_file)
-    df = pd.read_csv(first_csv_file)
-    data_list = []
-    for machine_name in machine_names:
-        new_df = df[df["Machine_name"] == machine_name]
-        data_list.append(new_df)
-
-    for i, data in enumerate(data_list):
-        if i == 0:
-            result = policy(first_csv_file, data)
-        else:
-            new_df = policy(first_csv_file, data)
-            if not new_df.empty:
-                result = pd.concat([result, new_df], axis=0)
-    result.dropna()
-    result.reset_index(drop=True, inplace=True)
-    result.to_csv("result002.csv", index=False)
-
-
-def main():
-    generate_first_csv_file("raw_data2.csv")
-    generate_second_csv_file("result1.csv")
+    result = pd.DataFrame(res)
+    return result
 
 
 if __name__ == "__main__":
-    main()
+    raw_data_csv_file = "raw_data.csv"  # 原始資料檔
+    machine_names = get_machine_name(raw_data_csv_file)  # 抓取所有機台名稱    
+    res_list = []  # 紀錄所有結果
+    
+    for machine_name in machine_names:
+        df_by_machine = get_dataframe(pd.read_csv(raw_data_csv_file), machine_name)
+        res = policy(df_by_machine)
+        res_list.append(res)
+        
+    # 合併res_list的所有資料
+    for i, data in enumerate(res_list):
+        if i == 0:
+            final_res = data
+        else:
+            final_res = pd.concat([final_res, data], axis=0)
+
+    final_res.reset_index(drop=True, inplace=True)
+    final_res.to_csv(f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv", index=False)
