@@ -59,7 +59,7 @@ def policy(df):
                     res["Machine"].pop(-1)
                     res["Status"].pop(-1)
                     res["Start_DTTM"].pop(-1)
-            elif status_name == "FINISHED" and df["status_name"][i - 1] == "STARTED":
+            elif status_name == "FINISHED" and df["status_name"][i - 1] == "STARTED" and stopped_reason == "MA":
                 res["Machine"].append(machine_name)
                 res["Status"].append("Run")
                 res["Start_DTTM"].append(df["log_datetime"][i - 1])
@@ -68,6 +68,15 @@ def policy(df):
                 res["error_code"].append("NA")
                 res["error_name"].append("NA")
                 res["stopped_reason"].append(stopped_reason)
+
+                res["Machine"].append(machine_name)
+                res["Status"].append("Stop")
+                res["Start_DTTM"].append(log_datetime)
+                res["Stop_DTTM"].append(log_datetime)
+                res["Duration"].append(cal_time_delta(log_datetime, log_datetime))
+                res["error_code"].append("MA")
+                res["error_name"].append("MA")
+                res["stopped_reason"].append("MA")
             elif status_name == "32trimform version 1.0.145" and df["status_name"][i - 1] == "FINISHED":
                 res["Machine"].append(machine_name)
                 res["Status"].append("Stop")
@@ -77,12 +86,30 @@ def policy(df):
                 res["error_code"].append(event_type)
                 res["error_name"].append(status_name)
                 res["stopped_reason"].append("NA")
-            elif status_name == "FINISHED" and df["status_name"][i - 1] == "State: Specific Running Continuous":
+            elif status_name == "FINISHED" and df["status_name"][i - 1] == "State: Specific Running Continuous" and stopped_reason == "MA":
                 res["Machine"].append(machine_name)
                 res["Status"].append("Run")
                 res["Start_DTTM"].append(df["log_datetime"][i - 1])
                 res["Stop_DTTM"].append(log_datetime)
                 res["Duration"].append(cal_time_delta(df["log_datetime"][i - 1], log_datetime))
+                res["error_code"].append("NA")
+                res["error_name"].append("NA")
+                res["stopped_reason"].append("NA")
+
+                res["Machine"].append(machine_name)
+                res["Status"].append("Stop")
+                res["Start_DTTM"].append(log_datetime)
+                res["Stop_DTTM"].append(log_datetime)
+                res["Duration"].append(cal_time_delta(log_datetime, log_datetime))
+                res["error_code"].append("MA")
+                res["error_name"].append("MA")
+                res["stopped_reason"].append("MA")
+            elif status_name == "FINISHED" and df["status_name"][i - 1] == "State: Specific Running Continuous" and stopped_reason == "Auto":
+                res["Machine"].append(machine_name)
+                res["Status"].append("Run")
+                res["Start_DTTM"].append(log_datetime)
+                res["Stop_DTTM"].append(log_datetime)
+                res["Duration"].append(cal_time_delta(log_datetime, log_datetime))
                 res["error_code"].append("NA")
                 res["error_name"].append("NA")
                 res["stopped_reason"].append("NA")
@@ -93,7 +120,7 @@ def policy(df):
 
 
 if __name__ == "__main__":
-    raw_data_csv_file = "raw_data.csv"  # 原始資料檔
+    raw_data_csv_file = "raw_data_test.csv"  # 原始資料檔
     machine_names = get_machine_name(raw_data_csv_file)  # 抓取所有機台名稱    
     res_list = []  # 紀錄所有結果
     
