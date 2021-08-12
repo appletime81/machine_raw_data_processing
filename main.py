@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-time_format = "%Y/%m/%d %H:%M"
+time_format = "%m/%d/%Y %H:%M"
 
 
 def get_machine_name(raw_data_file):
@@ -14,6 +14,8 @@ def get_dataframe(raw_data, machine_name):
 
 
 def cal_time_delta(time1, time2):
+    print(time1, type(time1))
+    print(time2, type(time2))
     time1 = datetime.strptime(time1, time_format)
     time2 = datetime.strptime(time2, time_format)
     if int(str(time2 - time1).split(":")[1]) == 0:
@@ -35,6 +37,7 @@ def policy(df):
         # print(serial, log_datetime, machine_name, event_type, status_name, error_code, error_name, stopped_reason)
 
         # start processing
+        print(f"第{i+2}行")
         if i > 0:
             if status_name == "ERROR" and df["status_name"][i - 1] == "STARTED":
                 res["Machine"].append(machine_name)
@@ -120,7 +123,7 @@ def policy(df):
 
 
 if __name__ == "__main__":
-    raw_data_csv_file = "raw_data_test.csv"  # 原始資料檔
+    raw_data_csv_file = "raw_data_test2.csv"  # 原始資料檔
     machine_names = get_machine_name(raw_data_csv_file)  # 抓取所有機台名稱    
     res_list = []  # 紀錄所有結果
     
